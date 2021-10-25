@@ -1,4 +1,5 @@
 import { WebPlugin } from '@capacitor/core';
+import { bluetooth } from 'webbluetooth';
 
 import type { BleCharacteristic, BleCharacteristicProperties, BleService } from '.';
 import { hexStringToDataView, mapToObject, webUUIDToString } from './conversion';
@@ -26,12 +27,17 @@ export class BluetoothLeWeb extends WebPlugin implements BluetoothLePlugin {
   private scan: BluetoothLEScan | null = null;
   private requestBleDeviceOptions: RequestBleDeviceOptions | undefined;
   private CONNECTION_TIMEOUT = 10000;
+  private platform?: 'node' | 'web';
 
   async initialize(): Promise<void> {
-    if (typeof navigator === 'undefined' || !navigator.bluetooth) {
-      throw this.unavailable('Web Bluetooth API not available in this browser.');
+    let isAvailable = false;
+    const isNode = typeof navigator === 'undefined' || !navigator.bluetooth;
+    this.platform = isNode ? 'node' : 'web';
+    if (isNode) {
+      isAvailable = await bluetooth.getAvailability();
+    } else {
+      isAvailable = await navigator.bluetooth.getAvailability();
     }
-    const isAvailable = await navigator.bluetooth.getAvailability();
     if (!isAvailable) {
       throw this.unavailable('No Bluetooth radio available.');
     }
@@ -80,7 +86,9 @@ export class BluetoothLeWeb extends WebPlugin implements BluetoothLePlugin {
 
   async requestDevice(options?: RequestBleDeviceOptions): Promise<BleDevice> {
     const filters = this.getFilters(options);
-    const device = await navigator.bluetooth.requestDevice({
+    // TODO: fix
+    const ble = this.platform === 'web' ? navigator.bluetooth : bluetooth;
+    const device = await ble.requestDevice({
       filters: filters.length ? filters : undefined,
       optionalServices: options?.optionalServices,
       acceptAllDevices: filters.length === 0,
@@ -91,6 +99,7 @@ export class BluetoothLeWeb extends WebPlugin implements BluetoothLePlugin {
   }
 
   async requestLEScan(options?: RequestBleDeviceOptions): Promise<void> {
+    if (this.platform === 'node') throw this.unavailable('Node: No requestLEScan support');
     this.requestBleDeviceOptions = options;
     const filters = this.getFilters(options);
     await this.stopLEScan();
@@ -133,6 +142,7 @@ export class BluetoothLeWeb extends WebPlugin implements BluetoothLePlugin {
   }
 
   async getDevices(_options: GetDevicesOptions): Promise<GetDevicesResult> {
+    if (this.platform === 'node') throw this.unavailable('Node: No getDevices support');
     const devices = await navigator.bluetooth.getDevices();
     const bleDevices = devices.map((device) => {
       this.deviceMap.set(device.id, device);
@@ -143,6 +153,7 @@ export class BluetoothLeWeb extends WebPlugin implements BluetoothLePlugin {
   }
 
   async getConnectedDevices(_options: GetConnectedDevicesOptions): Promise<GetDevicesResult> {
+    if (this.platform === 'node') throw this.unavailable('Node: No getConnectedDevices support');
     const devices = await navigator.bluetooth.getDevices();
     const bleDevices = devices
       .filter((device) => {

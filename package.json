@@ -34,7 +34,8 @@
   "license": "MIT",
   "dependencies": {
     "@types/web-bluetooth": "^0.0.11",
-    "throat": "^6.0.1"
+    "throat": "^6.0.1",
+    "webbluetooth": "^2.1.0"
   },
   "devDependencies": {
     "@capacitor/android": "^3.2.4",
